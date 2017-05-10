@@ -1,4 +1,5 @@
-/* -*- Mode: bison -*-
+/* -*- mode: bison -*- */
+
 /*
  *  The scanner definition for FFC.
  */
@@ -6,7 +7,15 @@
 %{
 
 #include <string>
-#include <iostream>
+#include "ffc.yy.hpp"
+
+using namespace yy;
+
+using std::shared_ptr;
+using std::make_shared;
+using std::string;
+
+ASTParser::semantic_type yylval;
 
 using namespace std;
 
@@ -59,7 +68,10 @@ int main(int argc, char** argv) {
     exit(0);
 }
 
+using tok = ASTParser::token;
 %}
+
+%option noyywrap
 %x IN_STRING
 
 INT [1-9][0-9]*
@@ -68,25 +80,25 @@ ID [A-z_][A-z0-9_]*
 OP [!~@#$%&^*-+\\/<>][!~@#$%&^*-+\\/<>=]*
 %%
 
-fnc        return Fnc;
-extern     return Extern;
-operator   return OperatorKw;
-include    return Include;
-type       return Type;
-ref        return Ref;
-val        return Val;
-implement  return Implement;
-for        return For;
-destructor return Destructor;
-if         return If;
-while      return While;
-else       return Else;
-ret        return Ret;
-generic    return Generic;
+fnc        return tok::Fnc;
+extern     return tok::Extern;
+operator   return tok::OperatorKw;
+include    return tok::Include;
+type       return tok::Type;
+ref        return tok::Ref;
+val        return tok::Val;
+implement  return tok::Implement;
+for        return tok::For;
+destructor return tok::Destructor;
+if         return tok::If;
+while      return tok::While;
+else       return tok::Else;
+ret        return tok::Ret;
+generic    return tok::Generic;
 
 {OP} {
-    yylval.op = yytext;
-    return Operator;
+    yylval.build(yytext);
+    return tok::Operator;
 }
 
 = return Eq;
@@ -101,54 +113,41 @@ generic    return Generic;
     BEGIN(IN_STRING);
 }
 
-<IN_STRING><<EOF>> {
-    yylval.error_msg = "EOF in string constant";
-    BEGIN(INITIAL);
-    return Error;
-}
-
 <IN_STRING>\" {
-    yylval.str = string_buf;
+    yylval.build(string_buf);
     BEGIN(INITIAL);
-    return Str;
+    return tok::Str;
  }
 
 <IN_STRING>. string_buf += *yytext;
 
 true {
-    yylval.bool_val = true;
-    return Bool;
+    yylval.build(true);
+    return tok::Bool;
 }
 
 false {
-    yylval.bool_val = false;
-    return Bool;
+    yylval.build(false);
+    return tok::Bool;
 }
 
 {ID} {
-    yylval.ident = yytext;
-    return Ident;
+    yylval.build(yytext);
+    return tok::Ident;
 }
 
 {FLOAT} {
-    yylval.float_num = stof(yytext);
-    return Float;
+    yylval.build(std::stof(yytext));
+    return tok::Float;
 }
 
 {INT} {
-    yylval.int_num = stoi(yytext);
-    return Int;
+    yylval.build(std::stoi(yytext));
+    return tok::Int;
 }
 
-
-"//".*
 
 [ \t\f\r\v]+
 \n curr_lineno++;
-
-. {
-    yylval.error_msg = yytext;
-    return Error;
-}
 
 %%
